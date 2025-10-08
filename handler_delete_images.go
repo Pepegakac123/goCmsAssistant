@@ -7,8 +7,7 @@ import (
 )
 
 func (cfg *apiConfig) cleanupImagesHandler(w http.ResponseWriter, r *http.Request) {
-	os.RemoveAll(cfg.tempRoot)
-	os.MkdirAll(cfg.tempRoot, 0755)
+	cfg.cleanupImages()
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Temp folder cleaned successfully",
 	})
