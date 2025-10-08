@@ -1,0 +1,11 @@
+# Binaries
+out
+*.exe
+
+# Zone Identifier (Windows)
+*:Zone.Identifier
+
+# Go
+go.sum
+
+.env
