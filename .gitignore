@@ -9,3 +9,6 @@ out
 go.sum
 
 .env
+
+# Folders
+/tmp

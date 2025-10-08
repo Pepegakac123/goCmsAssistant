@@ -49,12 +49,14 @@ func main() {
 	mux.Handle("/assets/", assetsHandler)
 
 	mux.HandleFunc("POST /api/images/upload", cfg.uploadImagesHandler)
+	mux.HandleFunc("DELETE /api/images/delete/{filename}", cfg.deleteImageHandler)
+	mux.HandleFunc("DELETE /api/images/tmp/cleanup", cfg.cleanupImagesHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: loggingMiddleware(mux),
 	}
 
-	log.Printf("Serving on: http://localhost:%s/app/\n", port)
+	log.Printf("Serving on: http://localhost:%s/\n", port)
 	log.Fatal(srv.ListenAndServe())
 }

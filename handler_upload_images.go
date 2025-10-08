@@ -28,6 +28,7 @@ type ImageInfo struct {
 
 // Główny handler
 func (cfg *apiConfig) uploadImagesHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hitted\n")
 	const uploadLimit = 1 << 30 // 1 GB
 
 	r.Body = http.MaxBytesReader(w, r.Body, uploadLimit)
