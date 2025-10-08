@@ -9,8 +9,9 @@ import (
 )
 
 type apiConfig struct {
-	Port       string
+	port       string
 	assetsRoot string
+	tempRoot   string
 }
 
 func main() {
@@ -25,12 +26,18 @@ func main() {
 		log.Fatal("ASSETS_ROOT environment variable is not set")
 	}
 
-	cfg := apiConfig{
-		Port:       port,
-		assetsRoot: assetsRoot,
+	tempRoot := os.Getenv("TEMP_ROOT")
+	if tempRoot == "" {
+		log.Fatal("TEMP_ROOT environment variable is not set")
 	}
 
-	err := cfg.ensureAssetsDir()
+	cfg := apiConfig{
+		port:       port,
+		assetsRoot: assetsRoot,
+		tempRoot:   tempRoot,
+	}
+
+	err := cfg.ensureDirs()
 	if err != nil {
 		log.Fatalf("Couldn't create assets directory: %v", err)
 	}
@@ -40,6 +47,8 @@ func main() {
 	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(assetsRoot)))
 
 	mux.Handle("/assets/", assetsHandler)
+
+	mux.HandleFunc("POST /api/images/upload", cfg.uploadImagesHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
