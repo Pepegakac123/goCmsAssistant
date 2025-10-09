@@ -9,8 +9,41 @@ import (
 	"context"
 )
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (name, role, hashed_password) VALUES ($1, $2, $3) RETURNING id, name, role, created_at, updated_at, hashed_password
+`
+
+type CreateUserParams struct {
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	HashedPassword string `json:"hashed_password"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.Name, arg.Role, arg.HashedPassword)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HashedPassword,
+	)
+	return i, err
+}
+
+const deleteAllUsers = `-- name: DeleteAllUsers :exec
+DELETE FROM users
+`
+
+func (q *Queries) DeleteAllUsers(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllUsers)
+	return err
+}
+
 const getUser = `-- name: GetUser :one
-SELECT id, name, role, created_at, updated_at FROM users WHERE id = $1
+SELECT id, name, role, created_at, updated_at, hashed_password FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
@@ -22,6 +55,7 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HashedPassword,
 	)
 	return i, err
 }

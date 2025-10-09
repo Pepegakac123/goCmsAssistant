@@ -5,9 +5,10 @@
 package database
 
 type User struct {
-	ID        int32       `json:"id"`
-	Name      string      `json:"name"`
-	Role      string      `json:"role"`
-	CreatedAt interface{} `json:"created_at"`
-	UpdatedAt interface{} `json:"updated_at"`
+	ID             int32       `json:"id"`
+	Name           string      `json:"name"`
+	Role           string      `json:"role"`
+	CreatedAt      interface{} `json:"created_at"`
+	UpdatedAt      interface{} `json:"updated_at"`
+	HashedPassword string      `json:"hashed_password"`
 }

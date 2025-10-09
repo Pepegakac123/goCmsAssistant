@@ -14,27 +14,28 @@ import (
 type apiConfig struct {
 	db         *database.Queries
 	port       string
+	platform   string
 	assetsRoot string
 	tempRoot   string
 	wpApi      wpApi
 }
 type tattooWpDestination struct {
-	tattooUrl      string `json:"tattooUrl"`
-	tattooHostname string `json:"tattooHostname"`
-	tattooAppPwd   string `json:"tattooAppPwd"`
+	tattooUrl      string
+	tattooHostname string
+	tattooAppPwd   string
 }
 
 type threeDWpDestination struct {
-	threeDUrl      string `json:"threeDUrl"`
-	threeDHostname string `json:"threeDHostname"`
-	threeAppPwd    string `json:"threeAppPwd"`
+	threeDUrl      string
+	threeDHostname string
+	threeAppPwd    string
 }
 
 type wpApi struct {
-	tattoo  tattooWpDestination `json:"tattoo"`
-	threeD  threeDWpDestination `json:"threeD"`
-	baseUrl string              `json:"baseUrl"`
-	user    string              `json:"user"`
+	tattoo  tattooWpDestination
+	threeD  threeDWpDestination
+	baseUrl string
+	user    string
 }
 
 func main() {
@@ -56,6 +57,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/images/delete/{filename}", cfg.deleteImageHandler)
 	mux.HandleFunc("DELETE /api/images/cleanup", cfg.cleanupImagesHandler)
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
+	mux.HandleFunc("POST /api/admin/register", cfg.registerUserHandler)
+	mux.HandleFunc("POST /api/admin/reset", cfg.resetAdminHandler)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:" + cfg.port, // ✅ Jawnie IPv4
@@ -76,6 +79,10 @@ func loadEnv() apiConfig {
 	port := os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("PORT environment variable is not set")
+	}
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM environment variable is not set")
 	}
 	assetsRoot := os.Getenv("ASSETS_ROOT")
 	if assetsRoot == "" {
@@ -147,6 +154,7 @@ func loadEnv() apiConfig {
 	cfg := apiConfig{
 		db:         dbQueries,
 		port:       port,
+		platform:   platform,
 		assetsRoot: assetsRoot,
 		tempRoot:   tempRoot,
 		wpApi:      wp,
