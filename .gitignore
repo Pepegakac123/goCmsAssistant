@@ -1,14 +1,43 @@
-# Binaries
-out
+# Pliki bazy danych SQLite
+*.db
+*.db-shm
+*.db-wal
+tmp
+
+# Wygenerowany kod przez sqlc (opcjonalne, ale zalecane)
+internal/database/*.go
+# lub jeśli masz w innym miejscu:
+db/*.go
+
+# Pliki binarne Go
 *.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/build/
 
-# Zone Identifier (Windows)
-*:Zone.Identifier
+# Pliki testowe
+*.test
+*.out
+coverage.txt
+coverage.html
 
-# Go
-go.sum
-
+# Pliki środowiskowe (sekrety!)
 .env
+.env.local
+.env.*.local
 
-# Folders
-/tmp
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# MacOS
+.DS_Store
+
+# Logi
+*.log

@@ -4,6 +4,15 @@
 
 package database
 
+type RefreshToken struct {
+	Token     string      `json:"token"`
+	CreatedAt interface{} `json:"created_at"`
+	UpdatedAt interface{} `json:"updated_at"`
+	UserID    int32       `json:"user_id"`
+	ExpiresAt interface{} `json:"expires_at"`
+	RevokedAt interface{} `json:"revoked_at"`
+}
+
 type User struct {
 	ID             int32       `json:"id"`
 	Name           string      `json:"name"`
