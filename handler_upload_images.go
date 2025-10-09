@@ -5,14 +5,17 @@ import (
 	"image"
 	_ "image/jpeg" // Ważne! Zarejestruj dekodery
 	_ "image/png"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/chai2010/webp"
 	"github.com/google/uuid"
+	"github.com/jdeng/goheif"
 	"github.com/nfnt/resize"
 )
 
@@ -61,35 +64,47 @@ func (cfg *apiConfig) uploadImagesHandler(w http.ResponseWriter, r *http.Request
 
 // Przetwarzanie pojedynczego obrazu
 func (cfg *apiConfig) processImage(fileHeader *multipart.FileHeader) (ImageInfo, error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("Przetworzono %s w %v\n", fileHeader.Filename, time.Since(start))
+	}()
+
 	const maxWidth = 1920
 	const maxHeight = 1080
 
-	// 1. Walidacja typu pliku
-	if err := validateImageType(fileHeader); err != nil {
+	log.Printf("1. Walidacja typu...")
+	mediaType, err := validateImageType(fileHeader)
+	if err != nil {
 		return ImageInfo{}, err
 	}
+	log.Printf("   Typ: %s (czas: %v)\n", mediaType, time.Since(start))
 
-	// 2. Otwórz plik
+	log.Printf("2. Otwieranie pliku...")
 	file, err := fileHeader.Open()
 	if err != nil {
 		return ImageInfo{}, fmt.Errorf("couldn't open file: %w", err)
 	}
 	defer file.Close()
+	log.Printf("   Otwarto (czas: %v)\n", time.Since(start))
 
 	originalSize := fileHeader.Size
 
-	// 3. Dekoduj i resize
-	img, err := decodeAndResize(file, maxWidth, maxHeight)
+	log.Printf("3. Dekodowanie i resize...")
+	decodeStart := time.Now()
+	img, err := decodeAndResize(file, maxWidth, maxHeight, mediaType)
 	if err != nil {
 		return ImageInfo{}, err
 	}
+	log.Printf("   Dekodowanie zajęło: %v\n", time.Since(decodeStart))
 
-	// 4. Zapisz jako WebP
+	log.Printf("4. Zapisywanie jako WebP...")
+	encodeStart := time.Now()
 	filename := fmt.Sprintf("%s.webp", uuid.New().String())
 	webpSize, err := cfg.saveAsWebP(img, filename)
 	if err != nil {
 		return ImageInfo{}, err
 	}
+	log.Printf("   Encoding WebP zajął: %v\n", time.Since(encodeStart))
 
 	return ImageInfo{
 		OriginalSize: int(originalSize),
@@ -99,11 +114,11 @@ func (cfg *apiConfig) processImage(fileHeader *multipart.FileHeader) (ImageInfo,
 }
 
 // Walidacja typu pliku
-func validateImageType(fileHeader *multipart.FileHeader) error {
+func validateImageType(fileHeader *multipart.FileHeader) (string, error) {
 	contentType := fileHeader.Header.Get("Content-Type")
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		return fmt.Errorf("couldn't parse media type: %w", err)
+		return "", fmt.Errorf("couldn't parse media type: %w", err)
 	}
 
 	validTypes := map[string]bool{
@@ -111,21 +126,33 @@ func validateImageType(fileHeader *multipart.FileHeader) error {
 		"image/jpg":  true,
 		"image/png":  true,
 		"image/webp": true,
+		"image/heic": true,
+		"image/heif": true,
 	}
 
 	if !validTypes[mediaType] {
-		return fmt.Errorf("unsupported file type: %s", mediaType)
+		return "", fmt.Errorf("unsupported file type: %s", mediaType)
 	}
 
-	return nil
+	return mediaType, nil
 }
 
 // Dekodowanie i resize obrazu
-func decodeAndResize(file multipart.File, maxWidth, maxHeight uint) (image.Image, error) {
+func decodeAndResize(file multipart.File, maxWidth, maxHeight uint, mediaType string) (image.Image, error) {
 	// Dekoduj
-	img, _, err := image.Decode(file)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't decode image: %w", err)
+	var img image.Image
+	var err error
+
+	if mediaType == "image/heic" || mediaType == "image/heif" {
+		img, err = goheif.Decode(file)
+		if err != nil {
+			log.Fatalf("Failed to parse file: %v\n", err)
+		}
+	} else {
+		img, _, err = image.Decode(file)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't decode image: %w", err)
+		}
 	}
 
 	// Sprawdź czy resize jest potrzebny
