@@ -41,8 +41,19 @@ type wpApi struct {
 func main() {
 
 	cfg := loadEnv()
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		log.Fatal("DB_PATH environment variable is not set")
+	}
 
-	err := cfg.ensureDirs()
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	dbQueries := database.New(db)
+	cfg.db = dbQueries
+	err = cfg.ensureDirs()
 	if err != nil {
 		log.Fatalf("Couldn't create assets directory: %v", err)
 	}
@@ -93,18 +104,6 @@ func loadEnv() apiConfig {
 	if tempRoot == "" {
 		log.Fatal("TEMP_ROOT environment variable is not set")
 	}
-
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		log.Fatal("DB_PATH environment variable is not set")
-	}
-
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-	dbQueries := database.New(db)
 	wpTattooUrl := os.Getenv("WORDPRESS_TATTOO_URL")
 	if wpTattooUrl == "" {
 		log.Fatal("WORDPRESS_TATTOO_URL environment variable is not set")
@@ -152,7 +151,6 @@ func loadEnv() apiConfig {
 		user:    wpUser,
 	}
 	cfg := apiConfig{
-		db:         dbQueries,
 		port:       port,
 		platform:   platform,
 		assetsRoot: assetsRoot,
