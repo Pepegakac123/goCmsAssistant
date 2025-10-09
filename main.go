@@ -17,6 +17,7 @@ type apiConfig struct {
 	platform   string
 	assetsRoot string
 	tempRoot   string
+	token      string
 	wpApi      wpApi
 }
 type tattooWpDestination struct {
@@ -104,6 +105,10 @@ func loadEnv() apiConfig {
 	if tempRoot == "" {
 		log.Fatal("TEMP_ROOT environment variable is not set")
 	}
+	token := os.Getenv("TOKEN")
+	if token == "" {
+		log.Fatal("TOKEN environment variable is not set")
+	}
 	wpTattooUrl := os.Getenv("WORDPRESS_TATTOO_URL")
 	if wpTattooUrl == "" {
 		log.Fatal("WORDPRESS_TATTOO_URL environment variable is not set")
@@ -155,6 +160,7 @@ func loadEnv() apiConfig {
 		platform:   platform,
 		assetsRoot: assetsRoot,
 		tempRoot:   tempRoot,
+		token:      token,
 		wpApi:      wp,
 	}
 	return cfg
