@@ -1,14 +1,18 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/Pepegakac123/goCmsAssistant/internal/database"
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type apiConfig struct {
+	db         *database.Queries
 	port       string
 	assetsRoot string
 	tempRoot   string
@@ -50,12 +54,12 @@ func main() {
 	mux.HandleFunc("GET /api", cfg.indexHandler)
 	mux.HandleFunc("POST /api/images/upload", cfg.uploadImagesHandler)
 	mux.HandleFunc("DELETE /api/images/delete/{filename}", cfg.deleteImageHandler)
-	mux.HandleFunc("DELETE /api/images/tmp/cleanup", cfg.cleanupImagesHandler)
+	mux.HandleFunc("DELETE /api/images/cleanup", cfg.cleanupImagesHandler)
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:" + cfg.port, // ✅ Jawnie IPv4
-		Handler: mux,
+		Handler: loggingMiddleware(mux),
 	}
 
 	log.Printf("Serving on: http://localhost:%s/\n", cfg.port)
@@ -83,6 +87,17 @@ func loadEnv() apiConfig {
 		log.Fatal("TEMP_ROOT environment variable is not set")
 	}
 
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		log.Fatal("DB_PATH environment variable is not set")
+	}
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	dbQueries := database.New(db)
 	wpTattooUrl := os.Getenv("WORDPRESS_TATTOO_URL")
 	if wpTattooUrl == "" {
 		log.Fatal("WORDPRESS_TATTOO_URL environment variable is not set")
@@ -130,6 +145,7 @@ func loadEnv() apiConfig {
 		user:    wpUser,
 	}
 	cfg := apiConfig{
+		db:         dbQueries,
 		port:       port,
 		assetsRoot: assetsRoot,
 		tempRoot:   tempRoot,
