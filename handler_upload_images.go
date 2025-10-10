@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/chai2010/webp"
@@ -29,10 +30,26 @@ type ImageInfo struct {
 	Filename     string `json:"filename"`
 }
 
+// Job reprezentuje jedno zadanie do przetworzenia
+type Job struct {
+	FileHeader *multipart.FileHeader
+	Index      int
+}
+
+// Result reprezentuje wynik przetworzenia
+type Result struct {
+	ImageInfo ImageInfo
+	Error     error
+	Index     int
+}
+
 // Główny handler
 func (cfg *apiConfig) uploadImagesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Endpoint hitted\n")
+	startTime := time.Now()
+
 	const uploadLimit = 1 << 30 // 1 GB
+	const numWorkers = 4        // Liczba równoczesnych przetwarzań
 
 	r.Body = http.MaxBytesReader(w, r.Body, uploadLimit)
 	err := r.ParseMultipartForm(uploadLimit)
@@ -47,18 +64,71 @@ func (cfg *apiConfig) uploadImagesHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var results []ImageInfo
+	log.Printf("Przetwarzam %d plików używając %d workerów...\n", len(files), numWorkers)
 
-	for _, fileHeader := range files {
-		imageInfo, err := cfg.processImage(fileHeader)
-		if err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error(), err)
-			return
-		}
-		results = append(results, imageInfo)
+	// Kanały do komunikacji
+	jobs := make(chan Job, len(files))
+	results := make(chan Result, len(files))
+
+	// WaitGroup do czekania na zakończenie wszystkich workerów
+	var wg sync.WaitGroup
+
+	// Uruchom workerów
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for job := range jobs {
+				log.Printf("[Worker %d] Przetwarzam %s...\n", workerID, job.FileHeader.Filename)
+
+				imageInfo, err := cfg.processImage(job.FileHeader)
+				results <- Result{
+					ImageInfo: imageInfo,
+					Error:     err,
+					Index:     job.Index,
+				}
+			}
+		}(i)
 	}
 
-	response := Images{Images: results}
+	// Wyślij zadania do workerów
+	go func() {
+		for i, fileHeader := range files {
+			jobs <- Job{
+				FileHeader: fileHeader,
+				Index:      i,
+			}
+		}
+		close(jobs) // Zamknij kanał gdy wszystkie zadania wysłane
+	}()
+
+	// Zamknij kanał results gdy wszyscy workerzy skończą
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Zbierz wyniki (zachowaj oryginalną kolejność)
+	resultSlice := make([]Result, len(files))
+	for result := range results {
+		resultSlice[result.Index] = result
+	}
+
+	// Sprawdź błędy i zbuduj odpowiedź
+	var finalResults []ImageInfo
+	for _, result := range resultSlice {
+		if result.Error != nil {
+			respondWithError(w, http.StatusBadRequest, result.Error.Error(), result.Error)
+			return
+		}
+		finalResults = append(finalResults, result.ImageInfo)
+	}
+
+	elapsed := time.Since(startTime)
+	log.Printf("✓ Przetworzono %d plików w %v (%.2f plików/s)\n",
+		len(files), elapsed, float64(len(files))/elapsed.Seconds())
+
+	response := Images{Images: finalResults}
 	respondWithJSON(w, http.StatusOK, response)
 }
 
