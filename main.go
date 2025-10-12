@@ -69,8 +69,11 @@ func main() {
 	mux.HandleFunc("DELETE /api/images/delete/{filename}", cfg.deleteImageHandler)
 	mux.HandleFunc("DELETE /api/images/cleanup", cfg.cleanupImagesHandler)
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
-	// mux.HandleFunc("POST /api/auth/login", cfg.loginHandler)
-	// Zmień w main.go:
+	mux.HandleFunc("POST /api/auth/login", cfg.loginHandler)
+	mux.Handle("POST /api/auth/logout",
+		cfg.authenticationMiddleware(
+			http.HandlerFunc(cfg.logoutHandler),
+		))
 	mux.Handle("POST /api/auth/token/refresh",
 		cfg.refreshTokenValidationMiddleware(
 			http.HandlerFunc(cfg.refreshTokenHandler), // Wymaga konwersji, bo resetAdminHandler to metoda
