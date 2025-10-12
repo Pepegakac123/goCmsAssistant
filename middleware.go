@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -34,6 +36,16 @@ func (cfg *apiConfig) authenticationMiddleware(next http.Handler) http.Handler {
 		userId, err := auth.ValidateJWT(token, cfg.token)
 		if err != nil {
 			respondWithError(w, http.StatusUnauthorized, "The token is invalid", err)
+			return
+		}
+		// ✅ Sprawdź czy użytkownik nadal istnieje
+		_, err = cfg.db.GetUser(r.Context(), int32(userId))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				respondWithError(w, http.StatusUnauthorized, "User not found", nil)
+				return
+			}
+			respondWithError(w, http.StatusInternalServerError, "Database error", err)
 			return
 		}
 		ctx := context.WithValue(r.Context(), contextKeyUserID, userId)
@@ -83,7 +95,7 @@ func (cfg *apiConfig) refreshTokenValidationMiddleware(next http.HandlerFunc) ht
 		}
 		dbToken, err := cfg.db.GetRefreshToken(r.Context(), refreshToken)
 		if err != nil {
-			if err.Error() == "sql: no rows in result set" {
+			if errors.Is(err, sql.ErrNoRows) {
 				respondWithError(w, http.StatusUnauthorized, "Invalid refresh token", nil)
 				return
 			}

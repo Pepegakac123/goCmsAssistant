@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -86,8 +87,8 @@ func (cfg *apiConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = cfg.db.RevokeToken(r.Context(), refreshToken)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			// Zwracamy 404/204 dla niezmienionego stanu, by nie zdradzać istnienia tokena
+		if errors.Is(err, sql.ErrNoRows) {
+			// Token nie istnieje lub już był unieważniony
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -120,14 +121,6 @@ func (cfg *apiConfig) refreshTokenHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// 4. Unieważnienie STAREGO Tokena (dla jednokrotnego użycia refresh tokena - bezpieczeństwo)
-	err = cfg.db.RevokeToken(r.Context(), dbToken.Token)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to revoke old refresh token", err)
-		return
-	}
-
-	// 5. Zapisanie NOWEGO Refresh Tokena w bazie
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 		Token:     newRefreshTokenStr,
 		UserID:    dbToken.UserID,
@@ -136,6 +129,11 @@ func (cfg *apiConfig) refreshTokenHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to save new refresh token", err)
 		return
+	}
+	err = cfg.db.RevokeToken(r.Context(), dbToken.Token)
+	if err != nil {
+		// Loguj błąd, ale nie blokuj - nowy token już istnieje
+		log.Printf("Warning: failed to revoke old token: %v", err)
 	}
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
@@ -154,8 +152,8 @@ func (cfg *apiConfig) revokeTokenHandler(w http.ResponseWriter, r *http.Request)
 
 	err = cfg.db.RevokeToken(r.Context(), refreshToken)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			// Zwracamy 404/204 dla niezmienionego stanu, by nie zdradzać istnienia tokena
+		if errors.Is(err, sql.ErrNoRows) {
+			// Token nie istnieje lub już był unieważniony
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
