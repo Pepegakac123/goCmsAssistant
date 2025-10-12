@@ -70,7 +70,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/images/cleanup", cfg.cleanupImagesHandler)
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
 	mux.HandleFunc("POST /api/admin/register", cfg.registerUserHandler)
-	mux.HandleFunc("POST /api/admin/reset", cfg.resetAdminHandler)
+	mux.HandleFunc("POST /api/admin/reset", cfg.authenticationMiddleware(cfg.)cfg.resetAdminHandler)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:" + cfg.port, // ✅ Jawnie IPv4

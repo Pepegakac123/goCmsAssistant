@@ -2,6 +2,8 @@
 *.db
 *.db-shm
 *.db-wal
+
+temp
 tmp
 
 # Wygenerowany kod przez sqlc (opcjonalne, ale zalecane)
