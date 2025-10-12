@@ -21,6 +21,12 @@ type User struct {
 }
 
 func (cfg *apiConfig) registerUserHandler(w http.ResponseWriter, r *http.Request) {
+	// userId, ok := r.Context().Value(contextKeyUserID).(int)
+	// if !ok {
+	// 	respondWithError(w, http.StatusUnauthorized, "The user is Unauthorized", nil)
+	// 	return
+	// }
+
 	if cfg.platform != "dev" {
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized", nil)
 		return

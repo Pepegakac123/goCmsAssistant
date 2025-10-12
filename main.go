@@ -69,8 +69,28 @@ func main() {
 	mux.HandleFunc("DELETE /api/images/delete/{filename}", cfg.deleteImageHandler)
 	mux.HandleFunc("DELETE /api/images/cleanup", cfg.cleanupImagesHandler)
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
-	mux.HandleFunc("POST /api/admin/register", cfg.registerUserHandler)
-	mux.HandleFunc("POST /api/admin/reset", cfg.authenticationMiddleware(cfg.)cfg.resetAdminHandler)
+	// mux.HandleFunc("POST /api/auth/login", cfg.loginHandler)
+	// Zmień w main.go:
+	mux.Handle("POST /api/auth/token/refresh",
+		cfg.refreshTokenValidationMiddleware(
+			http.HandlerFunc(cfg.refreshTokenHandler), // Wymaga konwersji, bo resetAdminHandler to metoda
+		),
+	)
+	mux.HandleFunc("POST /api/auth/token/revoke", cfg.revokeTokenHandler)
+	mux.Handle("POST /api/admin/register",
+		cfg.authenticationMiddleware(
+			cfg.adminMiddleware(
+				http.HandlerFunc(cfg.registerUserHandler),
+			),
+		),
+	)
+	mux.Handle("POST /api/admin/reset",
+		cfg.authenticationMiddleware(
+			cfg.adminMiddleware(
+				http.HandlerFunc(cfg.resetAdminHandler), // Wymaga konwersji, bo resetAdminHandler to metoda
+			),
+		),
+	)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:" + cfg.port, // ✅ Jawnie IPv4

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Pepegakac123/goCmsAssistant/internal/auth"
 )
@@ -11,8 +12,9 @@ import (
 type contextKey string
 
 const (
-	contextKeyUserID   contextKey = "userID"
-	contextKeyUserRole contextKey = "userRole"
+	contextKeyUserID       contextKey = "userID"
+	contextKeyUserRole     contextKey = "userRole"
+	contextKeyRefreshToken contextKey = "refreshToken"
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -39,7 +41,7 @@ func (cfg *apiConfig) authenticationMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func (cfg *apiConfig) userAdminMiddleware(next http.Handler) http.Handler {
+func (cfg *apiConfig) adminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		userID, ok := r.Context().Value(contextKeyUserID).(int)
@@ -67,6 +69,45 @@ func (cfg *apiConfig) userAdminMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), contextKeyUserRole, role)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
+	})
+}
+func (cfg *apiConfig) refreshTokenValidationMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		refreshToken, err := auth.GetBearerToken(r.Header)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Missing refresh token in Authorization header", err)
+			return
+		}
+		dbToken, err := cfg.db.GetRefreshToken(r.Context(), refreshToken)
+		if err != nil {
+			if err.Error() == "sql: no rows in result set" {
+				respondWithError(w, http.StatusUnauthorized, "Invalid refresh token", nil)
+				return
+			}
+			respondWithError(w, http.StatusInternalServerError, "Database error during token lookup", err)
+			return
+		}
+
+		if dbToken.RevokedAt != nil {
+			respondWithError(w, http.StatusUnauthorized, "Refresh token has been revoked", nil)
+			return
+		}
+
+		expiresAt, ok := dbToken.ExpiresAt.(time.Time)
+		if !ok {
+			respondWithError(w, http.StatusInternalServerError, "Internal server error: Invalid ExpiresAt type", nil)
+			return
+		}
+
+		if time.Now().After(expiresAt) {
+			respondWithError(w, http.StatusUnauthorized, "Refresh token has expired", nil)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), contextKeyRefreshToken, dbToken)
 		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
