@@ -59,7 +59,7 @@ func (cfg *apiConfig) registerUserHandler(w http.ResponseWriter, r *http.Request
 		respondWithError(w, http.StatusInternalServerError, "Couldn't register user", err)
 		return
 	}
-
+	const defaultRefreshTokenExpiration = 24 * 28 * time.Hour // 28 dni
 	const defaultExpirationTime = time.Hour
 	token, err := auth.MakeJWT(int(user.ID), cfg.token, defaultExpirationTime)
 	if err != nil {
@@ -74,8 +74,9 @@ func (cfg *apiConfig) registerUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		Token:  refreshToken,
-		UserID: user.ID,
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(defaultRefreshTokenExpiration),
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
@@ -128,10 +129,11 @@ func (cfg *apiConfig) createDefaultUser(req *http.Request) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("couldn't create refresh token: %w", err)
 	}
-
+	const defaultRefreshTokenExpiration = 24 * 28 * time.Hour // 28 dni
 	_, err = cfg.db.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams{
-		Token:  refreshToken,
-		UserID: user.ID,
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(defaultRefreshTokenExpiration),
 	})
 	if err != nil {
 		return User{}, fmt.Errorf("couldn't save refresh token: %w", err)
