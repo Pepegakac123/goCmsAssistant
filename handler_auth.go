@@ -79,23 +79,25 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	refreshToken, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Missing refresh token", err)
+	dbTokenRaw := r.Context().Value(contextKeyRefreshToken)
+	dbToken, ok := dbTokenRaw.(database.RefreshToken)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "Internal server error", nil)
 		return
 	}
 
-	err = cfg.db.RevokeToken(r.Context(), refreshToken)
+	// Unieważnij token
+	err := cfg.db.RevokeToken(r.Context(), dbToken.Token)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// Token nie istnieje lub już był unieważniony
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		respondWithError(w, http.StatusInternalServerError, "Failed to revoke token", err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (cfg *apiConfig) refreshTokenHandler(w http.ResponseWriter, r *http.Request) {

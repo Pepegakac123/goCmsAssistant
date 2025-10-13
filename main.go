@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -59,6 +60,12 @@ func main() {
 		log.Fatalf("Couldn't create assets directory: %v", err)
 	}
 
+	if cfg.platform == "dev" {
+		if err := cfg.ensureDefaultAdmin(context.Background()); err != nil {
+			log.Printf("⚠️  Warning: couldn't ensure default admin: %v", err)
+		}
+	}
+
 	mux := http.NewServeMux()
 	// mux.Handle("/",)
 	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(cfg.assetsRoot)))
@@ -71,7 +78,7 @@ func main() {
 	mux.HandleFunc("POST /api/images/send", cfg.sendImagesHandler)
 	mux.HandleFunc("POST /api/auth/login", cfg.loginHandler)
 	mux.Handle("POST /api/auth/logout",
-		cfg.authenticationMiddleware(
+		cfg.refreshTokenValidationMiddleware(
 			http.HandlerFunc(cfg.logoutHandler),
 		))
 	mux.Handle("POST /api/auth/token/refresh",
@@ -87,13 +94,7 @@ func main() {
 			),
 		),
 	)
-	mux.Handle("POST /api/admin/reset",
-		cfg.authenticationMiddleware(
-			cfg.adminMiddleware(
-				http.HandlerFunc(cfg.resetAdminHandler), // Wymaga konwersji, bo resetAdminHandler to metoda
-			),
-		),
-	)
+	mux.HandleFunc("POST /api/admin/reset", cfg.resetAdminHandler)
 
 	srv := &http.Server{
 		Addr:    "0.0.0.0:" + cfg.port, // ✅ Jawnie IPv4

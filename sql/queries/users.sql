@@ -13,3 +13,6 @@ DELETE FROM users;
 -- name: GetUserRoleById :one
 SELECT role from users
 WHERE id = $1;
+
+-- name: CountUsers :one
+SELECT COUNT(*) FROM users;

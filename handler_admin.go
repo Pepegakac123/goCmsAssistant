@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -100,13 +101,37 @@ func (cfg *apiConfig) registerUserHandler(w http.ResponseWriter, r *http.Request
 	})
 }
 
-func (cfg *apiConfig) createDefaultUser(req *http.Request) (User, error) {
+func (cfg *apiConfig) resetAdminHandler(w http.ResponseWriter, req *http.Request) {
+	if cfg.platform != "dev" {
+		respondWithError(w, http.StatusUnauthorized, "You can not reset user anywhere else than in dev PLATFORM", nil)
+		return
+	}
+
+	err := cfg.db.DeleteAllUsers(req.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't reset users", err)
+		return
+	}
+	defaultUser, err := cfg.createDefaultUser(req.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create default user", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]any{
+		"message": "Users reset successfully",
+		"user":    defaultUser,
+	})
+}
+
+func (cfg *apiConfig) createDefaultUser(ctx context.Context) (User, error) {
 	if cfg.platform != "dev" {
 		return User{}, fmt.Errorf("you can not create default user anywhere else than in dev platform")
 	}
 
 	const defaultPassword = "admin"
 	const defaultExpirationTime = time.Hour
+	const defaultRefreshTokenExpiration = 24 * 28 * time.Hour // 28 dni
 
 	// Hash password
 	hashPwd, err := auth.HashPassword(defaultPassword)
@@ -115,7 +140,7 @@ func (cfg *apiConfig) createDefaultUser(req *http.Request) (User, error) {
 	}
 
 	// Create user
-	user, err := cfg.db.CreateUser(req.Context(), database.CreateUserParams{
+	user, err := cfg.db.CreateUser(ctx, database.CreateUserParams{
 		Name:           "admin",
 		HashedPassword: hashPwd,
 		Role:           "admin",
@@ -135,8 +160,8 @@ func (cfg *apiConfig) createDefaultUser(req *http.Request) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("couldn't create refresh token: %w", err)
 	}
-	const defaultRefreshTokenExpiration = 24 * 28 * time.Hour // 28 dni
-	_, err = cfg.db.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams{
+
+	_, err = cfg.db.CreateRefreshToken(ctx, database.CreateRefreshTokenParams{
 		Token:     refreshToken,
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(defaultRefreshTokenExpiration),
@@ -154,28 +179,4 @@ func (cfg *apiConfig) createDefaultUser(req *http.Request) (User, error) {
 		Token:        token,
 		RefreshToken: refreshToken,
 	}, nil
-}
-
-func (cfg *apiConfig) resetAdminHandler(w http.ResponseWriter, req *http.Request) {
-	if cfg.platform != "dev" {
-		respondWithError(w, http.StatusUnauthorized, "You can not reset user anywhere else than in dev PLATFORM", nil)
-		return
-	}
-
-	err := cfg.db.DeleteAllUsers(req.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't reset users", err)
-		return
-	}
-
-	defaultUser, err := cfg.createDefaultUser(req)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create default user", err)
-		return
-	}
-
-	respondWithJSON(w, http.StatusOK, map[string]any{
-		"message": "Users reset successfully",
-		"user":    defaultUser,
-	})
 }
