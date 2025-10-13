@@ -1,18 +1,20 @@
 -- name: GetUser :one
-SELECT * FROM users WHERE id = $1;
+SELECT * FROM users WHERE id = ?;
 
 -- name: GetUserByName :one
-SELECT * FROM users WHERE name = $1;
+SELECT * FROM users WHERE name = ?;
 
 -- name: CreateUser :one
-INSERT INTO users (name, role, hashed_password) VALUES ($1, $2, $3) RETURNING *;
+INSERT INTO users (name, role, hashed_password) 
+VALUES (?, ?, ?) 
+RETURNING *;
 
 -- name: DeleteAllUsers :exec
 DELETE FROM users;
 
 -- name: GetUserRoleById :one
-SELECT role from users
-WHERE id = $1;
+SELECT role FROM users
+WHERE id = ?;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
