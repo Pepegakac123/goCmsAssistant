@@ -216,7 +216,7 @@ func decodeAndResize(file multipart.File, maxWidth, maxHeight uint, mediaType st
 	if mediaType == "image/heic" || mediaType == "image/heif" {
 		img, err = goheif.Decode(file)
 		if err != nil {
-			log.Fatalf("Failed to parse file: %v\n", err)
+			return nil, fmt.Errorf("couldn't decode HEIC: %w", err)
 		}
 	} else {
 		img, _, err = image.Decode(file)

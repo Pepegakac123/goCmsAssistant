@@ -39,7 +39,7 @@ func (cfg *apiConfig) authenticationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		// ✅ Sprawdź czy użytkownik nadal istnieje
-		_, err = cfg.db.GetUser(r.Context(), int32(userId))
+		_, err = cfg.db.GetUser(r.Context(), int64(userId))
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				respondWithError(w, http.StatusUnauthorized, "User not found", nil)
@@ -68,7 +68,7 @@ func (cfg *apiConfig) adminMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		role, err := cfg.db.GetUserRoleById(r.Context(), int32(userID))
+		role, err := cfg.db.GetUserRoleById(r.Context(), int64(userID))
 		if err != nil {
 			respondWithError(w, http.StatusUnauthorized, "Could not determine user role", nil)
 			return
@@ -108,13 +108,7 @@ func (cfg *apiConfig) refreshTokenValidationMiddleware(next http.HandlerFunc) ht
 			return
 		}
 
-		expiresAt, ok := dbToken.ExpiresAt.(time.Time)
-		if !ok {
-			respondWithError(w, http.StatusInternalServerError, "Internal server error: Invalid ExpiresAt type", nil)
-			return
-		}
-
-		if time.Now().After(expiresAt) {
+		if time.Now().After(dbToken.ExpiresAt) {
 			respondWithError(w, http.StatusUnauthorized, "Refresh token has expired", nil)
 			return
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/Pepegakac123/goCmsAssistant/internal/database"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pressly/goose/v3"
 )
 
 type apiConfig struct {
@@ -53,6 +54,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	if err := goose.Up(db, "sql/schema"); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
 	dbQueries := database.New(db)
 	cfg.db = dbQueries
 	err = cfg.ensureDirs()

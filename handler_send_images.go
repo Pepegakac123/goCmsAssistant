@@ -86,6 +86,19 @@ func (cfg *apiConfig) sendImagesHandler(w http.ResponseWriter, r *http.Request) 
 			result.WordPressURL = mediaResp.SourceURL
 		}
 
+		// if result.Success {
+		// 	_, err = cfg.db.CreateUploadHistory(r.Context(), database.CreateUploadHistoryParams{
+		// 		Filename:     result.Filename,
+		// 		OriginalSize: int32(fileInfo.Size()),
+		// 		WebpSize:     int32(webpSize), // musisz to śledzić
+		// 		WordpressID:  sql.NullInt32{Int32: int32(mediaResp.ID), Valid: true},
+		// 		WordpressURL: sql.NullString{String: mediaResp.SourceURL, Valid: true},
+		// 		WebsiteType:  string(webType),
+		// 		Success:      1,
+		// 		UserID:       int32(userID), // z context
+		// 	})
+		// }
+
 		results = append(results, result)
 	}
 
