@@ -139,8 +139,8 @@ func (cfg *apiConfig) processImage(fileHeader *multipart.FileHeader) (ImageInfo,
 		log.Printf("Przetworzono %s w %v\n", fileHeader.Filename, time.Since(start))
 	}()
 
-	const maxWidth = 1920
-	const maxHeight = 1080
+	const maxWidth = 2560
+	const maxHeight = 1440
 
 	log.Printf("1. Walidacja typu...")
 	mediaType, err := validateImageType(fileHeader)
